@@ -1,0 +1,163 @@
+/* ==========================================================================================
+   SCRIPT 04: Fee Installment Management, Payment Rollup & Ledger Balances
+   Module: Payments (Custom Module) -> Fee_Invoices -> Students (Master Profile)
+   Trigger: Workflow Rule on Create/Edit of Payments record
+   ========================================================================================== */
+
+void processFeePayment(String paymentRecordId)
+{
+    // Step 1: Retrieve Payment record
+    paymentRec = zoho.crm.getRecordById("Payments", paymentRecordId.toLong());
+    if(paymentRec == null || paymentRec.isEmpty())
+    {
+        info "Invalid Payment record ID: " + paymentRecordId;
+        return;
+    }
+    
+    invoiceLookup = paymentRec.get("Invoice_Lookup");
+    if(invoiceLookup == null || invoiceLookup.get("id") == null)
+    {
+        info "No Invoice linked to Payment " + paymentRecordId;
+        return;
+    }
+    
+    invoiceId = invoiceLookup.get("id").toString();
+    
+    // Step 2: Retrieve the Parent Fee Invoice
+    invoiceRec = zoho.crm.getRecordById("Fee_Invoices", invoiceId.toLong());
+    if(invoiceRec == null || invoiceRec.isEmpty())
+    {
+        info "Fee Invoice not found for ID: " + invoiceId;
+        return;
+    }
+    
+    totalInvoiceAmount = ifnull(invoiceRec.get("Total_Fee_Amount"), 0.0).toDecimal();
+    dueDateStr = invoiceRec.get("Due_Date");
+    studentLookup = invoiceRec.get("Student_Lookup");
+    
+    // Step 3: Query all payments linked to this invoice
+    relatedPayments = zoho.crm.getRelatedRecords("Payments", "Fee_Invoices", invoiceId.toLong(), 1, 100);
+    
+    totalAmountPaid = 0.0;
+    if(relatedPayments != null && !relatedPayments.isEmpty())
+    {
+        for each pmt in relatedPayments
+        {
+            amt = ifnull(pmt.get("Amount"), 0.0).toDecimal();
+            totalAmountPaid = totalAmountPaid + amt;
+        }
+    }
+    
+    // Step 4: Calculate Outstanding Amount & Invoice Payment Status
+    outstandingAmount = totalInvoiceAmount - totalAmountPaid;
+    if(outstandingAmount < 0.0)
+    {
+        outstandingAmount = 0.0; // Prevent negative balance if slight overpayment
+    }
+    
+    paymentStatus = "Unpaid";
+    todayDate = zoho.currentdate;
+    
+    if(outstandingAmount == 0.0 && totalAmountPaid > 0.0)
+    {
+        paymentStatus = "Paid in Full";
+    }
+    else if(totalAmountPaid > 0.0 && outstandingAmount > 0.0)
+    {
+        paymentStatus = "Partially Paid";
+    }
+    else if(totalAmountPaid == 0.0)
+    {
+        if(dueDateStr != null && dueDateStr.toDate() < todayDate)
+        {
+            paymentStatus = "Overdue";
+        }
+        else
+        {
+            paymentStatus = "Unpaid";
+        }
+    }
+    
+    // Step 5: Update Fee Invoice record
+    invoiceUpdate = Map();
+    invoiceUpdate.put("Amount_Paid", totalAmountPaid);
+    invoiceUpdate.put("Outstanding_Amount", outstandingAmount);
+    invoiceUpdate.put("Payment_Status", paymentStatus);
+    zoho.crm.updateRecord("Fee_Invoices", invoiceId.toLong(), invoiceUpdate);
+    
+    info "Invoice " + invoiceId + " updated: Billed = " + totalInvoiceAmount + ", Paid = " + totalAmountPaid + ", Outstanding = " + outstandingAmount + " (" + paymentStatus + ")";
+    
+    // Step 6: Rollup global fee balance across all invoices for the Student
+    if(studentLookup != null && studentLookup.get("id") != null)
+    {
+        studentCrmId = studentLookup.get("id").toString();
+        rollupStudentGlobalFeeLedger(studentCrmId);
+    }
+}
+
+// ------------------------------------------------------------------------------------------
+// Sub-Function: Rollup Global Fee Ledger to Master Student Record
+// ------------------------------------------------------------------------------------------
+void rollupStudentGlobalFeeLedger(String studentCrmId)
+{
+    studentInvoices = zoho.crm.getRelatedRecords("Fee_Invoices", "Students", studentCrmId.toLong(), 1, 100);
+    
+    if(studentInvoices == null || studentInvoices.isEmpty())
+    {
+        return;
+    }
+    
+    cumulativeBilled = 0.0;
+    cumulativeCollected = 0.0;
+    cumulativeOutstanding = 0.0;
+    hasOverdueInvoice = false;
+    hasPartialInvoice = false;
+    
+    for each inv in studentInvoices
+    {
+        billed = ifnull(inv.get("Total_Fee_Amount"), 0.0).toDecimal();
+        collected = ifnull(inv.get("Amount_Paid"), 0.0).toDecimal();
+        outst = ifnull(inv.get("Outstanding_Amount"), 0.0).toDecimal();
+        st = ifnull(inv.get("Payment_Status"), "");
+        
+        cumulativeBilled = cumulativeBilled + billed;
+        cumulativeCollected = cumulativeCollected + collected;
+        cumulativeOutstanding = cumulativeOutstanding + outst;
+        
+        if(st.equalsIgnoreCase("Overdue"))
+        {
+            hasOverdueInvoice = true;
+        }
+        else if(st.equalsIgnoreCase("Partially Paid"))
+        {
+            hasPartialInvoice = true;
+        }
+    }
+    
+    globalStatus = "Paid";
+    if(cumulativeOutstanding > 0.0)
+    {
+        if(hasOverdueInvoice)
+        {
+            globalStatus = "Overdue";
+        }
+        else if(cumulativeCollected > 0.0)
+        {
+            globalStatus = "Partially Paid";
+        }
+        else
+        {
+            globalStatus = "Unpaid";
+        }
+    }
+    
+    // Update Student Master Profile
+    studentUpdate = Map();
+    studentUpdate.put("Total_Fees_Billed", cumulativeBilled);
+    studentUpdate.put("Total_Fees_Collected", cumulativeCollected);
+    studentUpdate.put("Total_Outstanding_Fees", cumulativeOutstanding);
+    studentUpdate.put("Fee_Status", globalStatus);
+    zoho.crm.updateRecord("Students", studentCrmId.toLong(), studentUpdate);
+    
+    info "Student " + studentCrmId + " fee summary: Billed=" + cumulativeBilled + ", Collected=" + cumulativeCollected + ", Outstanding=" + cumulativeOutstanding + " (" + globalStatus + ")";
+}

@@ -1,0 +1,154 @@
+/* ==========================================================================================
+   SCRIPT 02: Attendance Validation, Duplicate Prevention & Real-time % Rollup
+   Module: Attendance (Custom Module)
+   Trigger: 
+     1. Pre-Save / Before Create: Enforce uniqueness on Composite_Key (Student_ID + "_" + Date)
+     2. Post-Save / On Create/Edit: Roll up attendance statistics to parent Student record
+   ========================================================================================== */
+
+// ------------------------------------------------------------------------------------------
+// Function A: Duplicate Attendance Prevention (Validation Rule / Pre-Save Script)
+// ------------------------------------------------------------------------------------------
+string validateAttendanceDuplicate(String studentId, String attendanceDate, String currentRecordId)
+{
+    // Generate Composite Key: e.g. STU-2025-0042_2026-09-10
+    compositeKey = studentId + "_" + attendanceDate;
+    
+    // Search CRM Attendance module for existing records with this exact key
+    searchCriteria = "(Composite_Key:equals:" + compositeKey + ")";
+    existingRecords = zoho.crm.searchRecords("Attendance", searchCriteria, 1, 5);
+    
+    if(existingRecords != null && !existingRecords.isEmpty())
+    {
+        for each record in existingRecords
+        {
+            foundId = record.get("id").toString();
+            // If the found record is NOT the one being edited, it is a genuine duplicate!
+            if(currentRecordId == null || !foundId.equalsIgnoreCase(currentRecordId))
+            {
+                return "DUPLICATE_FOUND: An attendance record already exists for Student " + studentId + " on " + attendanceDate + " (Record ID: " + foundId + "). Please update the existing record instead.";
+            }
+        }
+    }
+    
+    return "SUCCESS";
+}
+
+// ------------------------------------------------------------------------------------------
+// Function B: Rollup Attendance Statistics & Update Parent Student Record
+// ------------------------------------------------------------------------------------------
+void rollupStudentAttendance(String studentCrmRecordId)
+{
+    if(studentCrmRecordId == null || studentCrmRecordId.isEmpty())
+    {
+        info "Invalid Student CRM Record ID.";
+        return;
+    }
+    
+    // Step 1: Query all attendance records for this student
+    // In Zoho CRM, related module queries can be retrieved via relatedRecords or searchRecords
+    attendanceList = zoho.crm.getRelatedRecords("Attendance", "Students", studentCrmRecordId.toLong(), 1, 200);
+    
+    if(attendanceList == null || attendanceList.isEmpty())
+    {
+        info "No attendance records found for student: " + studentCrmRecordId;
+        return;
+    }
+    
+    totalDays = 0;
+    presentDays = 0;
+    absentDays = 0;
+    lateDays = 0;
+    excusedDays = 0;
+    
+    // Track consecutive absences for early risk alert
+    consecutiveAbsences = 0;
+    maxRecentConsecutiveAbsences = 0;
+    
+    // Process attendance history
+    for each att in attendanceList
+    {
+        status = ifnull(att.get("Status"), "");
+        
+        if(!status.isEmpty())
+        {
+            totalDays = totalDays + 1;
+            
+            if(status.equalsIgnoreCase("Present"))
+            {
+                presentDays = presentDays + 1;
+                consecutiveAbsences = 0; // Reset consecutive absence counter
+            }
+            else if(status.equalsIgnoreCase("Absent"))
+            {
+                absentDays = absentDays + 1;
+                consecutiveAbsences = consecutiveAbsences + 1;
+                if(consecutiveAbsences > maxRecentConsecutiveAbsences)
+                {
+                    maxRecentConsecutiveAbsences = consecutiveAbsences;
+                }
+            }
+            else if(status.equalsIgnoreCase("Late"))
+            {
+                // In school policy, late arrival counts as present (0.5 or 1 full day)
+                lateDays = lateDays + 1;
+                presentDays = presentDays + 0.8; // Weighted 80%
+                consecutiveAbsences = 0;
+            }
+            else if(status.equalsIgnoreCase("Excused"))
+            {
+                excusedDays = excusedDays + 1;
+                // Excused absences do not penalize percentage
+                presentDays = presentDays + 1.0;
+                consecutiveAbsences = 0;
+            }
+        }
+    }
+    
+    // Step 2: Compute Attendance Percentage
+    attendancePct = 100.0;
+    if(totalDays > 0)
+    {
+        rawPct = (presentDays / totalDays) * 100.0;
+        // Round to 2 decimal places
+        attendancePct = (rawPct * 100).toLong() / 100.0;
+    }
+    
+    // Determine Attendance Risk Flag
+    isLowAttendance = false;
+    if(attendancePct < 75.0 || maxRecentConsecutiveAbsences >= 3)
+    {
+        isLowAttendance = true;
+    }
+    
+    // Step 3: Update Student Master Record in CRM
+    updateStudentMap = Map();
+    updateStudentMap.put("Total_Working_Days", totalDays);
+    updateStudentMap.put("Days_Present", presentDays.toLong());
+    updateStudentMap.put("Days_Absent", absentDays);
+    updateStudentMap.put("Days_Late", lateDays);
+    updateStudentMap.put("Days_Excused", excusedDays);
+    updateStudentMap.put("Attendance_Percentage", attendancePct);
+    updateStudentMap.put("Low_Attendance_Alert", isLowAttendance);
+    
+    updateResp = zoho.crm.updateRecord("Students", studentCrmRecordId.toLong(), updateStudentMap);
+    info "Student attendance rollup completed. Pct: " + attendancePct + "%, Alert: " + isLowAttendance;
+    
+    // Step 4: If Low Attendance Alert is triggered, create an automated Notification Task for Class Teacher
+    if(isLowAttendance)
+    {
+        studentRec = zoho.crm.getRecordById("Students", studentCrmRecordId.toLong());
+        studentName = studentRec.get("Name");
+        studentId = studentRec.get("Student_ID");
+        
+        taskMap = Map();
+        taskMap.put("Subject", "URGENT: Low Attendance Warning for " + studentName + " (" + studentId + ")");
+        taskMap.put("Due_Date", zoho.currentdate.addDay(2));
+        taskMap.put("Priority", "High");
+        taskMap.put("Status", "Not Started");
+        taskMap.put("Description", "Student's attendance has dropped to " + attendancePct + "% (Consecutive absences: " + maxRecentConsecutiveAbsences + "). Class teacher review and parent consultation required.");
+        taskMap.put("What_Id", studentCrmRecordId.toLong());
+        taskMap.put("$se_module", "Students");
+        zoho.crm.createRecord("Tasks", taskMap);
+    }
+}

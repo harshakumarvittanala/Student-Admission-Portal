@@ -1,0 +1,171 @@
+/* ==========================================================================================
+   SCRIPT 03: Examination Marks Validation, Grading Logic & Term GPA Rollup
+   Module: Exam_Results (Custom Module) -> Students (Master Module)
+   Trigger: Workflow Rule on Create/Edit of Exam_Results record
+   ========================================================================================== */
+
+void processExamResult(String examResultId)
+{
+    // Step 1: Retrieve Exam Result record from CRM
+    resultRec = zoho.crm.getRecordById("Exam_Results", examResultId.toLong());
+    if(resultRec == null || resultRec.isEmpty())
+    {
+        info "Invalid Exam Result record ID: " + examResultId;
+        return;
+    }
+    
+    // Step 2: Extract marks, maximum marks and passing criteria
+    marksObtained = ifnull(resultRec.get("Marks_Obtained"), 0.0).toDecimal();
+    maxMarks = ifnull(resultRec.get("Max_Marks"), 100.0).toDecimal();
+    passingMarks = ifnull(resultRec.get("Passing_Marks"), 40.0).toDecimal();
+    studentLookup = resultRec.get("Student_Lookup");
+    
+    if(maxMarks <= 0.0)
+    {
+        maxMarks = 100.0;
+    }
+    
+    // Step 3: Input Validation - Guard against impossible marks
+    if(marksObtained < 0.0)
+    {
+        marksObtained = 0.0;
+    }
+    if(marksObtained > maxMarks)
+    {
+        info "Warning: Marks obtained (" + marksObtained + ") exceeds Max Marks (" + maxMarks + "). Capping at max.";
+        marksObtained = maxMarks;
+    }
+    
+    // Step 4: Calculate Percentage & Grading Matrix
+    pct = (marksObtained / maxMarks) * 100.0;
+    pctRounded = (pct * 100).toLong() / 100.0;
+    
+    grade = "F";
+    gradePoint = 0.0;
+    status = "Fail";
+    
+    // Standard Academic Grading Scale (CBSE / International standard)
+    if(pctRounded >= 90.0)
+    {
+        grade = "A+";
+        gradePoint = 4.0;
+    }
+    else if(pctRounded >= 80.0)
+    {
+        grade = "A";
+        gradePoint = 3.7;
+    }
+    else if(pctRounded >= 70.0)
+    {
+        grade = "B";
+        gradePoint = 3.0;
+    }
+    else if(pctRounded >= 60.0)
+    {
+        grade = "C";
+        gradePoint = 2.0;
+    }
+    else if(pctRounded >= 50.0)
+    {
+        grade = "D";
+        gradePoint = 1.0;
+    }
+    else
+    {
+        grade = "F";
+        gradePoint = 0.0;
+    }
+    
+    if(marksObtained >= passingMarks)
+    {
+        status = "Pass";
+    }
+    else
+    {
+        status = "Fail";
+    }
+    
+    // Step 5: Update the Exam_Results record with evaluated metrics
+    updateMap = Map();
+    updateMap.put("Marks_Obtained", marksObtained);
+    updateMap.put("Percentage", pctRounded);
+    updateMap.put("Grade", grade);
+    updateMap.put("Grade_Point", gradePoint);
+    updateMap.put("Result_Status", status);
+    zoho.crm.updateRecord("Exam_Results", examResultId.toLong(), updateMap);
+    
+    info "Exam Result updated: " + marksObtained + "/" + maxMarks + " -> " + pctRounded + "% (" + grade + ") - " + status;
+    
+    // Step 6: Recalculate Student Overall Academic Performance / Cumulative GPA
+    if(studentLookup != null && studentLookup.get("id") != null)
+    {
+        studentCrmId = studentLookup.get("id").toString();
+        recalculateStudentOverallAcademicGPA(studentCrmId);
+    }
+}
+
+// ------------------------------------------------------------------------------------------
+// Sub-Function: Recalculate Student Cumulative Academic Performance
+// ------------------------------------------------------------------------------------------
+void recalculateStudentOverallAcademicGPA(String studentCrmId)
+{
+    // Fetch all exam results for this student
+    studentResults = zoho.crm.getRelatedRecords("Exam_Results", "Students", studentCrmId.toLong(), 1, 200);
+    
+    if(studentResults == null || studentResults.isEmpty())
+    {
+        return;
+    }
+    
+    totalSubjectsCount = 0;
+    totalGradePoints = 0.0;
+    totalMarksSum = 0.0;
+    totalMaxMarksSum = 0.0;
+    failedSubjectsCount = 0;
+    
+    for each res in studentResults
+    {
+        mObt = ifnull(res.get("Marks_Obtained"), 0.0).toDecimal();
+        mMax = ifnull(res.get("Max_Marks"), 100.0).toDecimal();
+        gp = ifnull(res.get("Grade_Point"), 0.0).toDecimal();
+        st = ifnull(res.get("Result_Status"), "Pass");
+        
+        totalSubjectsCount = totalSubjectsCount + 1;
+        totalGradePoints = totalGradePoints + gp;
+        totalMarksSum = totalMarksSum + mObt;
+        totalMaxMarksSum = totalMaxMarksSum + mMax;
+        
+        if(st.equalsIgnoreCase("Fail"))
+        {
+            failedSubjectsCount = failedSubjectsCount + 1;
+        }
+    }
+    
+    cumulativeGPA = 0.0;
+    overallPercentage = 0.0;
+    
+    if(totalSubjectsCount > 0)
+    {
+        cumulativeGPA = ((totalGradePoints / totalSubjectsCount) * 100).toLong() / 100.0;
+    }
+    if(totalMaxMarksSum > 0)
+    {
+        overallPercentage = (((totalMarksSum / totalMaxMarksSum) * 100.0) * 100).toLong() / 100.0;
+    }
+    
+    academicAlert = false;
+    if(cumulativeGPA < 2.0 || failedSubjectsCount > 0)
+    {
+        academicAlert = true;
+    }
+    
+    // Update Student Master Profile
+    studentUpdate = Map();
+    studentUpdate.put("Cumulative_GPA", cumulativeGPA);
+    studentUpdate.put("Overall_Academic_Percentage", overallPercentage);
+    studentUpdate.put("Total_Failed_Subjects", failedSubjectsCount);
+    studentUpdate.put("Academic_Probation_Flag", academicAlert);
+    
+    zoho.crm.updateRecord("Students", studentCrmId.toLong(), studentUpdate);
+    info "Student " + studentCrmId + " academic update: GPA = " + cumulativeGPA + ", Overall Pct = " + overallPercentage + "%";
+}

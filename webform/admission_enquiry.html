@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Greenwood International School - Online Admission Enquiry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="webform_styles.css">
+</head>
+<body>
+  <div class="page-container">
+    <div class="card-container">
+      <!-- Header -->
+      <header class="form-header">
+        <div class="brand-badge">
+          <svg class="school-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+          </svg>
+          <span class="school-name">Greenwood International School</span>
+        </div>
+<a class="admin-box" href="admin_login.html">Admin</a>
+        <h1 class="form-title">Student Admission Enquiry</h1>
+        <p class="form-subtitle">Academic Year 2025–2026 • Please complete all required fields to register your application enquiry with our admissions committee.</p>
+        
+        <div class="progress-tracker">
+          <div class="step active" id="stepIndicator1">
+            <span class="step-num">1</span>
+            <span class="step-label">Student Details</span>
+          </div>
+          <div class="step-connector"></div>
+          <div class="step" id="stepIndicator2">
+            <span class="step-num">2</span>
+            <span class="step-label">Parent Details</span>
+          </div>
+          <div class="step-connector"></div>
+          <div class="step" id="stepIndicator3">
+            <span class="step-num">3</span>
+            <span class="step-label">Academic & Residence</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Form -->
+      <!-- Note: To link directly to your Zoho CRM organization, replace the action URL and the hidden xnQsjsdp / xmIwtLD tokens from Setup > Developer Space > Webforms in Zoho CRM -->
+      <form id="admissionForm" action="https://crm.zoho.com/crm/WebToLeadForm" method="POST" accept-charset="UTF-8" novalidate>
+        <!-- Zoho CRM Standard Web-to-Lead Hidden Inputs -->
+        <input type="hidden" name="xnQsjsdp" value="YOUR_ZOHO_CRM_PUBLIC_KEY">
+        <input type="hidden" name="xmIwtLD" value="YOUR_ZOHO_CRM_ENCRYPTED_FORM_KEY">
+        <input type="hidden" name="actionType" value="TGVhZHM=">
+        <input type="hidden" name="returnURL" value="https://greenwoodschool.edu/admissions/thank-you.html">
+        <input type="hidden" name="Lead Source" value="Website Admission Webform">
+        <input type="hidden" name="Lead Status" value="New Enquiry">
+        
+        <!-- Honeypot Anti-Spam Field (hidden from genuine users) -->
+        <div class="hp-field" style="display:none !important;" aria-hidden="true">
+          <label for="honeypot_field">Leave this empty</label>
+          <input type="text" id="honeypot_field" name="honeypot_validator" tabindex="-1" autocomplete="off">
+        </div>
+
+        <!-- Section 1: Student Information -->
+        <div class="form-step-panel active" id="stepPanel1">
+          <div class="section-title-wrap">
+            <h2 class="section-heading">Step 1: Student Information</h2>
+            <p class="section-desc">Details of the applicant student</p>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="First_Name" class="form-label required">Student First Name</label>
+              <input type="text" id="First_Name" name="First Name" class="form-input" placeholder="e.g., Aarav" required>
+              <span class="field-error" id="err-First_Name"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="Last_Name" class="form-label required">Student Last Name</label>
+              <input type="text" id="Last_Name" name="Last Name" class="form-input" placeholder="e.g., Sharma" required>
+              <span class="field-error" id="err-Last_Name"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="dob" class="form-label required">Date of Birth</label>
+              <input type="date" id="dob" name="Date of Birth" class="form-input" required>
+              <span class="field-error" id="err-dob"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="gender" class="form-label required">Gender</label>
+              <select id="gender" name="Gender" class="form-select" required>
+                <option value="">-- Select Gender --</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+              <span class="field-error" id="err-gender"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="gradeApplying" class="form-label required">Grade / Class Applying For</label>
+              <select id="gradeApplying" name="Grade Applying For" class="form-select" required>
+                <option value="">-- Select Target Grade --</option>
+                <option value="Kindergarten">Kindergarten (KG / Reception)</option>
+                <option value="Grade 1">Grade 1</option>
+                <option value="Grade 2">Grade 2</option>
+                <option value="Grade 3">Grade 3</option>
+                <option value="Grade 4">Grade 4</option>
+                <option value="Grade 5">Grade 5</option>
+                <option value="Grade 6">Grade 6</option>
+                <option value="Grade 7">Grade 7</option>
+                <option value="Grade 8">Grade 8</option>
+                <option value="Grade 9">Grade 9</option>
+                <option value="Grade 10">Grade 10</option>
+                <option value="Grade 11">Grade 11</option>
+                <option value="Grade 12">Grade 12</option>
+              </select>
+              <span class="field-error" id="err-gradeApplying"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="academicYear" class="form-label required">Academic Year</label>
+              <select id="academicYear" name="Academic Year Applying For" class="form-select" required>
+                <option value="2025-2026" selected>2025 - 2026 (Upcoming Term)</option>
+                <option value="2026-2027">2026 - 2027 (Advance Registration)</option>
+              </select>
+              <span class="field-error" id="err-academicYear"></span>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="previousSchool" class="form-label">Previous School Attended (If Applicable)</label>
+              <input type="text" id="previousSchool" name="Previous School" class="form-input" placeholder="e.g., St. Xavier High School, Bengaluru">
+            </div>
+          </div>
+
+          <div class="form-nav-actions right-align">
+            <button type="button" class="btn btn-primary" onclick="validateAndGoStep(2)">
+              Next: Parent / Guardian Details
+              <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 2: Parent / Guardian Details -->
+        <div class="form-step-panel" id="stepPanel2">
+          <div class="section-title-wrap">
+            <h2 class="section-heading">Step 2: Parent / Guardian Information</h2>
+            <p class="section-desc">Primary contact details for all admission communications</p>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="parentName" class="form-label required">Parent / Guardian Full Name</label>
+              <input type="text" id="parentName" name="Parent or Guardian Name" class="form-input" placeholder="e.g., Rajesh Sharma" required>
+              <span class="field-error" id="err-parentName"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="parentRelation" class="form-label required">Relationship to Student</label>
+              <select id="parentRelation" name="Relationship to Student" class="form-select" required>
+                <option value="">-- Select Relationship --</option>
+                <option value="Father">Father</option>
+                <option value="Mother">Mother</option>
+                <option value="Legal Guardian">Legal Guardian</option>
+              </select>
+              <span class="field-error" id="err-parentRelation"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="parentEmail" class="form-label required">Parent Primary Email</label>
+              <input type="email" id="parentEmail" name="Email" class="form-input" placeholder="parent.email@domain.com" required>
+              <span class="field-hint">This email will be used for your Zoho Creator Parent Portal login.</span>
+              <span class="field-error" id="err-parentEmail"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="parentPhone" class="form-label required">Parent Primary Phone</label>
+              <input type="tel" id="parentPhone" name="Phone" class="form-input" placeholder="e.g., +91 9876543210" required>
+              <span class="field-hint">Used for urgent notifications & SMS alerts.</span>
+              <span class="field-error" id="err-parentPhone"></span>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="parentOccupation" class="form-label">Parent Occupation & Organization</label>
+              <input type="text" id="parentOccupation" name="Parent Occupation" class="form-input" placeholder="e.g., Software Architect at Tech Corp">
+            </div>
+          </div>
+
+          <div class="form-nav-actions space-between">
+            <button type="button" class="btn btn-secondary" onclick="goStep(1)">Back</button>
+            <button type="button" class="btn btn-primary" onclick="validateAndGoStep(3)">
+              Next: Residence & Preferences
+              <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 3: Residence, Preferences & Submission -->
+        <div class="form-step-panel" id="stepPanel3">
+          <div class="section-title-wrap">
+            <h2 class="section-heading">Step 3: Residential Address & Additional Info</h2>
+            <p class="section-desc">Location and logistical requirements</p>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label for="streetAddress" class="form-label required">Residential Street Address</label>
+              <input type="text" id="streetAddress" name="Street" class="form-input" placeholder="House/Apartment #, Street Name, Area" required>
+              <span class="field-error" id="err-streetAddress"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="city" class="form-label required">City</label>
+              <input type="text" id="city" name="City" class="form-input" placeholder="e.g., Bengaluru" required>
+              <span class="field-error" id="err-city"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="state" class="form-label required">State / Province</label>
+              <input type="text" id="state" name="State" class="form-input" placeholder="e.g., Karnataka" required>
+              <span class="field-error" id="err-state"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="postalCode" class="form-label required">Postal / Zip Code</label>
+              <input type="text" id="postalCode" name="Zip Code" class="form-input" placeholder="e.g., 560001" required>
+              <span class="field-error" id="err-postalCode"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="transportReq" class="form-label">School Bus Transportation Required?</label>
+              <select id="transportReq" name="Transportation Required" class="form-select">
+                <option value="No">No (Private Commute)</option>
+                <option value="Yes">Yes (School Bus Route)</option>
+              </select>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="specialNeeds" class="form-label">Special Educational Needs, Allergies, or Remarks</label>
+              <textarea id="specialNeeds" name="Description" class="form-textarea" rows="3" placeholder="Please mention any special medical considerations, dietary allergies, or learning support requests..."></textarea>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="consent-checkbox">
+                <input type="checkbox" id="consentCheck" required>
+                <span>I confirm that the information provided is accurate and agree to receive admission updates and notifications from Greenwood International School.</span>
+              </label>
+              <span class="field-error" id="err-consentCheck"></span>
+            </div>
+          </div>
+
+          <div class="form-nav-actions space-between">
+            <button type="button" class="btn btn-secondary" onclick="goStep(2)">Back</button>
+            <button type="submit" id="submitBtn" class="btn btn-submit">
+              <span class="btn-text">Submit Admission Enquiry</span>
+              <span class="btn-spinner" style="display:none;"></span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Confirmation Modal on Success -->
+      <div id="successModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-card">
+          <div class="modal-icon-wrap">
+            <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <h2 class="modal-title">Enquiry Successfully Submitted!</h2>
+          <p class="modal-text">Thank you for your interest in Greenwood International School. Your enquiry has been registered in our Zoho CRM Admission Portal.</p>
+          <div class="enquiry-reference-box">
+            <span class="ref-label">Generated Temporary Reference:</span>
+            <span class="ref-code" id="refCodeDisplay">ENQ-2025-XXXX</span>
+          </div>
+          <p class="modal-subtext">Our admissions committee will review your application and contact you within 24 to 48 hours for document verification and campus interview scheduling.</p>
+          <button type="button" class="btn btn-primary" onclick="closeModalAndReset()">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Step Navigation Logic
+    let currentStep = 1;
+
+    function goStep(stepNumber) {
+      document.querySelectorAll('.form-step-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+
+      document.getElementById('stepPanel' + stepNumber).classList.add('active');
+      for (let i = 1; i <= stepNumber; i++) {
+        document.getElementById('stepIndicator' + i).classList.add('active');
+      }
+      currentStep = stepNumber;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function validateAndGoStep(targetStep) {
+      if (targetStep === 2) {
+        // Validate Step 1
+        const fName = document.getElementById('First_Name');
+        const lName = document.getElementById('Last_Name');
+        const dob = document.getElementById('dob');
+        const gender = document.getElementById('gender');
+        const grade = document.getElementById('gradeApplying');
+        let valid = true;
+
+        clearErrors(1);
+
+        if (!fName.value.trim()) { setError('First_Name', 'First name is required'); valid = false; }
+        if (!lName.value.trim()) { setError('Last_Name', 'Last name is required'); valid = false; }
+        if (!dob.value) { setError('dob', 'Date of birth is required'); valid = false; }
+        else {
+          const birthDate = new Date(dob.value);
+          const age = new Date().getFullYear() - birthDate.getFullYear();
+          if (age < 3 || age > 21) {
+            setError('dob', 'Student age must be between 3 and 21 years old');
+            valid = false;
+          }
+        }
+        if (!gender.value) { setError('gender', 'Please select a gender'); valid = false; }
+        if (!grade.value) { setError('gradeApplying', 'Please select the target grade'); valid = false; }
+
+        if (valid) goStep(2);
+      } else if (targetStep === 3) {
+        // Validate Step 2
+        const pName = document.getElementById('parentName');
+        const pRel = document.getElementById('parentRelation');
+        const pEmail = document.getElementById('parentEmail');
+        const pPhone = document.getElementById('parentPhone');
+        let valid = true;
+
+        clearErrors(2);
+
+        if (!pName.value.trim()) { setError('parentName', 'Parent / Guardian name is required'); valid = false; }
+        if (!pRel.value) { setError('parentRelation', 'Please specify relationship'); valid = false; }
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!pEmail.value.trim() || !emailRegex.test(pEmail.value.trim())) {
+          setError('parentEmail', 'Please enter a valid email address');
+          valid = false;
+        }
+
+        const phoneRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/;
+        if (!pPhone.value.trim() || pPhone.value.replace(/\D/g, '').length < 10) {
+          setError('parentPhone', 'Please enter a valid 10-digit phone number');
+          valid = false;
+        }
+
+        if (valid) goStep(3);
+      }
+    }
+
+    function setError(id, msg) {
+      const el = document.getElementById('err-' + id);
+      if (el) el.textContent = msg;
+      const input = document.getElementById(id);
+      if (input) input.classList.add('input-error');
+    }
+
+    function clearErrors(step) {
+      const panel = document.getElementById('stepPanel' + step);
+      if (panel) {
+        panel.querySelectorAll('.field-error').forEach(e => e.textContent = '');
+        panel.querySelectorAll('.input-error').forEach(i => i.classList.remove('input-error'));
+      }
+    }
+
+    // Form Submission & Anti-Spam Check
+    const form = document.getElementById('admissionForm');
+    form.addEventListener('submit', function(e) {
+      // Honeypot check
+      const hp = document.getElementById('honeypot_field').value;
+      if (hp) {
+        e.preventDefault();
+        console.warn('Spam submission suppressed.');
+        return false;
+      }
+
+      // Step 3 validation
+      const street = document.getElementById('streetAddress');
+      const city = document.getElementById('city');
+      const state = document.getElementById('state');
+      const zip = document.getElementById('postalCode');
+      const consent = document.getElementById('consentCheck');
+      let valid = true;
+
+      clearErrors(3);
+      if (!street.value.trim()) { setError('streetAddress', 'Address is required'); valid = false; }
+      if (!city.value.trim()) { setError('city', 'City is required'); valid = false; }
+      if (!state.value.trim()) { setError('state', 'State is required'); valid = false; }
+      if (!zip.value.trim()) { setError('postalCode', 'Postal code is required'); valid = false; }
+      if (!consent.checked) { setError('consentCheck', 'You must agree before submitting'); valid = false; }
+
+      if (!valid) {
+        e.preventDefault();
+        return false;
+      }
+
+      // If keys are placeholder, simulate local successful submission for testing
+      const isPlaceholder = form.querySelector('[name="xnQsjsdp"]').value === 'YOUR_ZOHO_CRM_PUBLIC_KEY';
+      if (isPlaceholder) {
+        e.preventDefault();
+        const randNum = Math.floor(1000 + Math.random() * 9000);
+        const refCode = 'ENQ-2025-' + randNum;
+        document.getElementById('refCodeDisplay').textContent = refCode;
+
+        // Persist registration in localStorage for unified Admin Console view
+        try {
+          const newReg = {
+            enquiryId: refCode,
+            studentName: document.getElementById('First_Name').value.trim() + ' ' + document.getElementById('Last_Name').value.trim(),
+            dob: document.getElementById('dob').value,
+            gender: document.getElementById('gender').value,
+            gradeApplying: document.getElementById('gradeApplying').value,
+            academicYear: document.getElementById('academicYear').value,
+            parentName: document.getElementById('parentName').value.trim(),
+            parentRelation: document.getElementById('parentRelation').value,
+            parentEmail: document.getElementById('parentEmail').value.trim(),
+            parentPhone: document.getElementById('parentPhone').value.trim(),
+            city: document.getElementById('city').value.trim(),
+            state: document.getElementById('state').value.trim(),
+            dateSubmitted: new Date().toISOString().split('T')[0],
+            status: 'New Enquiry'
+          };
+          const existing = JSON.parse(localStorage.getItem('greenwood_registrations') || '[]');
+          existing.unshift(newReg);
+          localStorage.setItem('greenwood_registrations', JSON.stringify(existing));
+        } catch (err) {
+          console.error('Storage error:', err);
+        }
+
+        document.getElementById('successModal').style.display = 'flex';
+      }
+    });
+
+    function closeModalAndReset() {
+      document.getElementById('successModal').style.display = 'none';
+      form.reset();
+      goStep(1);
+    }
+  </script>
+</body>
+</html>

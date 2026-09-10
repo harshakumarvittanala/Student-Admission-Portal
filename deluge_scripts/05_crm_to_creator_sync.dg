@@ -1,0 +1,146 @@
+/* ==========================================================================================
+   SCRIPT 05: CRM to Zoho Creator Bidirectional Sync & Parent Portal Security Engine
+   Architecture: Event-Driven Sync (CRM -> Creator) + Row-Level Portal Security (Creator)
+   ========================================================================================== */
+
+// ------------------------------------------------------------------------------------------
+// PART 1: Zoho CRM Workflow / Webhook Trigger (Pushes Student 360 updates to Creator)
+// ------------------------------------------------------------------------------------------
+void syncStudentToCreatorPortal(String studentCrmRecordId)
+{
+    // Step 1: Fetch comprehensive Student Record from CRM
+    studentRec = zoho.crm.getRecordById("Students", studentCrmRecordId.toLong());
+    if(studentRec == null || studentRec.isEmpty())
+    {
+        info "Invalid Student CRM ID: " + studentCrmRecordId;
+        return;
+    }
+    
+    // Step 2: Extract attributes needed for Parent Application
+    studentId = ifnull(studentRec.get("Student_ID"), "");
+    studentName = ifnull(studentRec.get("Name"), "");
+    dob = ifnull(studentRec.get("Date_of_Birth"), "");
+    gender = ifnull(studentRec.get("Gender"), "");
+    parentName = ifnull(studentRec.get("Parent_Name"), "");
+    parentEmail = ifnull(studentRec.get("Parent_Email"), "");
+    parentPhone = ifnull(studentRec.get("Parent_Phone"), "");
+    academicStatus = ifnull(studentRec.get("Academic_Status"), "Active");
+    
+    // Lookups
+    className = "";
+    classLookup = studentRec.get("Current_Class");
+    if(classLookup != null && classLookup.get("name") != null)
+    {
+        className = classLookup.get("name");
+    }
+    
+    sectionName = "";
+    sectionLookup = studentRec.get("Current_Section");
+    if(sectionLookup != null && sectionLookup.get("name") != null)
+    {
+        sectionName = sectionLookup.get("name");
+    }
+    
+    // Metrics
+    attendancePct = ifnull(studentRec.get("Attendance_Percentage"), 100.0).toDecimal();
+    gpa = ifnull(studentRec.get("Cumulative_GPA"), 0.0).toDecimal();
+    academicPct = ifnull(studentRec.get("Overall_Academic_Percentage"), 0.0).toDecimal();
+    feeStatus = ifnull(studentRec.get("Fee_Status"), "Unpaid");
+    outstandingFees = ifnull(studentRec.get("Total_Outstanding_Fees"), 0.0).toDecimal();
+    
+    // Step 3: Prepare Zoho Creator Data Payload
+    creatorPayload = Map();
+    creatorPayload.put("CRM_Record_ID", studentCrmRecordId);
+    creatorPayload.put("Student_ID", studentId);
+    creatorPayload.put("Student_Name", studentName);
+    creatorPayload.put("Date_of_Birth", dob);
+    creatorPayload.put("Gender", gender);
+    creatorPayload.put("Parent_Email", parentEmail);
+    creatorPayload.put("Parent_Name", parentName);
+    creatorPayload.put("Parent_Phone", parentPhone);
+    creatorPayload.put("Class_Name", className);
+    creatorPayload.put("Section_Name", sectionName);
+    creatorPayload.put("Academic_Status", academicStatus);
+    creatorPayload.put("Attendance_Percentage", attendancePct);
+    creatorPayload.put("Cumulative_GPA", gpa);
+    creatorPayload.put("Overall_Academic_Percentage", academicPct);
+    creatorPayload.put("Fee_Status", feeStatus);
+    creatorPayload.put("Outstanding_Amount", outstandingFees);
+    creatorPayload.put("Last_Synced_Time", zoho.currenttime.toString("yyyy-MM-dd HH:mm:ss"));
+    
+    // Step 4: Upsert into Zoho Creator Application
+    // Application: "school-parent-portal", Form: "Students_Portal_View"
+    // Criteria: Check if record with matching Student_ID already exists
+    appOwner = "greenwood_school_admin";
+    appName = "school-parent-portal";
+    formName = "Students_Portal_View";
+    
+    // Search Creator for existing shadow record
+    creatorCriteria = "(Student_ID == \"" + studentId + "\")";
+    existingRecords = zoho.creator.getRecords(appOwner, appName, "All_Students_Portal_Views", creatorCriteria, 1, 1);
+    
+    if(existingRecords != null && !existingRecords.isEmpty() && existingRecords.get("code") == 3000)
+    {
+        recordList = existingRecords.get("data");
+        if(recordList != null && !recordList.isEmpty())
+        {
+            creatorRecordId = recordList.get(0).get("ID");
+            // Update existing Creator record
+            updateResp = zoho.creator.updateRecord(appOwner, appName, "All_Students_Portal_Views", creatorRecordId.toLong(), creatorPayload);
+            info "Creator Record updated successfully for " + studentId + ": " + updateResp;
+            return;
+        }
+    }
+    
+    // Create new Creator record if not existing
+    createResp = zoho.creator.createRecord(appOwner, appName, formName, creatorPayload);
+    info "Creator Record created successfully for " + studentId + ": " + createResp;
+}
+
+
+// ------------------------------------------------------------------------------------------
+// PART 2: Zoho Creator Client-Side / Portal Page Deluge Script
+// Enforces Strict Parent Data Isolation (Row-Level Security based on Authenticated Login)
+// ------------------------------------------------------------------------------------------
+/*
+   In Zoho Creator Parent Portal Page / HTML Snippet:
+   The logged-in parent's email is retrieved securely via: zoho.loginuser / zoho.loginuserid
+
+   Deluge script in Creator Page (e.g., Parent_Dashboard_Controller):
+*/
+/*
+loggedInParentEmail = zoho.loginuser;
+
+// Security Guard: Prevent unauthenticated or unauthorized access
+if(loggedInParentEmail == null || loggedInParentEmail.isEmpty())
+{
+    alert("Unauthorized: Please log in with your registered parent email address.");
+    return;
+}
+
+// Fetch only students where Parent_Email matches the authenticated login
+matchedStudents = Students_Portal_View[Parent_Email == loggedInParentEmail];
+
+if(matchedStudents.count() == 0)
+{
+    // No child associated with this parent email
+    output = "<div class='alert-box'>No student records found linked to " + loggedInParentEmail + ". Please contact school administration.</div>";
+    return;
+}
+
+// Support for Multi-Child Parents:
+// If a parent has multiple children in the school, provide a selector dropdown
+for each student in matchedStudents
+{
+    studentID = student.Student_ID;
+    studentName = student.Student_Name;
+    className = student.Class_Name;
+    sectionName = student.Section_Name;
+    attendance = student.Attendance_Percentage;
+    gpa = student.Cumulative_GPA;
+    feeStatus = student.Fee_Status;
+    dueFees = student.Outstanding_Amount;
+    
+    // Render personalized child card
+}
+*/

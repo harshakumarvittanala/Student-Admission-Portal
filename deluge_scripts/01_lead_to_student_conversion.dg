@@ -1,0 +1,176 @@
+/* ==========================================================================================
+   SCRIPT 01: Lead to Student Conversion & Unique Student ID Generation
+   Module: Leads (Admissions) -> Students (Custom Module)
+   Trigger: Workflow Rule on Lead Update when "Enquiry_Status" == "Admission Confirmed"
+            OR Custom Button "Confirm & Convert to Student"
+   ========================================================================================== */
+
+void convertLeadToStudent(String leadId)
+{
+    // Step 1: Fetch complete Lead (Admission Enquiry) record from CRM
+    leadRecord = zoho.crm.getRecordById("Leads", leadId.toLong());
+    
+    if(leadRecord == null || leadRecord.isEmpty())
+    {
+        info "Error: Lead record not found for ID: " + leadId;
+        return;
+    }
+    
+    // Step 2: Extract Lead attributes
+    fName = ifnull(leadRecord.get("First_Name"), "");
+    lName = ifnull(leadRecord.get("Last_Name"), "");
+    fullName = fName + " " + lName;
+    dob = leadRecord.get("Date_of_Birth");
+    gender = ifnull(leadRecord.get("Gender"), "Other");
+    gradeApplying = ifnull(leadRecord.get("Grade_Applying_For"), "");
+    academicYear = ifnull(leadRecord.get("Academic_Year_Applying_For"), "2025-2026");
+    parentName = ifnull(leadRecord.get("Parent_or_Guardian_Name"), "");
+    parentEmail = ifnull(leadRecord.get("Email"), "");
+    parentPhone = ifnull(leadRecord.get("Phone"), "");
+    parentRelation = ifnull(leadRecord.get("Relationship_to_Student"), "Parent");
+    street = ifnull(leadRecord.get("Street"), "");
+    city = ifnull(leadRecord.get("City"), "");
+    state = ifnull(leadRecord.get("State"), "");
+    zipCode = ifnull(leadRecord.get("Zip_Code"), "");
+    
+    // Step 3: Prevent duplicate conversion
+    existingConvertedId = leadRecord.get("Converted_Student_ID");
+    if(existingConvertedId != null && !existingConvertedId.isEmpty())
+    {
+        info "Lead has already been converted to Student ID: " + existingConvertedId;
+        return;
+    }
+    
+    // Step 4: Generate Unique Scalable Student ID (Format: STU-YYYY-XXXX)
+    currentYear = zoho.currentdate.toString("yyyy");
+    
+    // Retrieve latest student sequence from CRM or calculate total count
+    studentSearchParams = "(Student_ID:starts_with:STU-" + currentYear + ")";
+    existingStudents = zoho.crm.searchRecords("Students", studentSearchParams, 1, 200);
+    
+    sequenceNumber = 1;
+    if(existingStudents != null && !existingStudents.isEmpty())
+    {
+        sequenceNumber = existingStudents.size() + 1;
+    }
+    
+    // Format zero-padded 4-digit number e.g. 0001, 0042
+    paddedSeq = sequenceNumber.toString();
+    while(paddedSeq.length() < 4)
+    {
+        paddedSeq = "0" + paddedSeq;
+    }
+    generatedStudentID = "STU-" + currentYear + "-" + paddedSeq;
+    
+    // Step 5: Resolve Academic Year and Class Lookup in CRM
+    academicYearLookupId = null;
+    classLookupId = null;
+    
+    // Search Academic Year record
+    ayRecords = zoho.crm.searchRecords("Academic_Years", "(Academic_Year_Name:equals:" + academicYear + ")", 1, 1);
+    if(ayRecords != null && !ayRecords.isEmpty())
+    {
+        academicYearLookupId = ayRecords.get(0).get("id");
+    }
+    
+    // Search Class record matching grade
+    if(!gradeApplying.isEmpty())
+    {
+        classRecords = zoho.crm.searchRecords("Classes", "(Class_Name:equals:" + gradeApplying + ")", 1, 1);
+        if(classRecords != null && !classRecords.isEmpty())
+        {
+            classLookupId = classRecords.get(0).get("id");
+        }
+    }
+    
+    // Step 6: Construct Student Record Payload
+    studentMap = Map();
+    studentMap.put("Name", fullName);
+    studentMap.put("Student_ID", generatedStudentID);
+    studentMap.put("First_Name", fName);
+    studentMap.put("Last_Name", lName);
+    studentMap.put("Date_of_Birth", dob);
+    studentMap.put("Gender", gender);
+    studentMap.put("Academic_Status", "Active");
+    studentMap.put("Admission_Date", zoho.currentdate);
+    studentMap.put("Parent_Name", parentName);
+    studentMap.put("Parent_Email", parentEmail);
+    studentMap.put("Parent_Phone", parentPhone);
+    studentMap.put("Parent_Relationship", parentRelation);
+    studentMap.put("Street_Address", street);
+    studentMap.put("City", city);
+    studentMap.put("State", state);
+    studentMap.put("Zip_Code", zipCode);
+    studentMap.put("Attendance_Percentage", 100.0);
+    studentMap.put("Fee_Status", "Pending Invoicing");
+    studentMap.put("Total_Outstanding_Fees", 0.0);
+    
+    if(academicYearLookupId != null)
+    {
+        studentMap.put("Current_Academic_Year", academicYearLookupId);
+    }
+    if(classLookupId != null)
+    {
+        studentMap.put("Current_Class", classLookupId);
+    }
+    
+    // Create Student in CRM
+    studentCreateResp = zoho.crm.createRecord("Students", studentMap);
+    newStudentId = studentCreateResp.get("id");
+    
+    if(newStudentId == null)
+    {
+        info "Error creating Student record: " + studentCreateResp;
+        return;
+    }
+    
+    info "Successfully created Student: " + fullName + " with ID: " + generatedStudentID;
+    
+    // Step 7: Update Lead Status & Stamp Reference
+    updateLeadMap = Map();
+    updateLeadMap.put("Lead_Status", "Admission Confirmed");
+    updateLeadMap.put("Converted_Student_ID", generatedStudentID);
+    updateLeadMap.put("Student_Lookup", newStudentId);
+    zoho.crm.updateRecord("Leads", leadId.toLong(), updateLeadMap);
+    
+    // Step 8: Create Note on Lead record for audit trail
+    noteMap = Map();
+    noteMap.put("Note_Title", "Admission Confirmed - Student Profile Generated");
+    noteMap.put("Note_Content", "Applicant successfully enrolled. Unique Student ID assigned: " + generatedStudentID + ". Created student record ID: " + newStudentId);
+    noteMap.put("Parent_Id", leadId.toLong());
+    noteMap.put("se_module", "Leads");
+    zoho.crm.createRecord("Notes", noteMap);
+    
+    // Step 9: Initialize First Term Fee Invoice automatically
+    invoiceMap = Map();
+    invoiceMap.put("Invoice_Number", "INV-" + currentYear + "-" + paddedSeq + "-T1");
+    invoiceMap.put("Student_Lookup", newStudentId);
+    invoiceMap.put("Term_Name", "Term 1 - Tuition & Admission Fee");
+    invoiceMap.put("Due_Date", zoho.currentdate.addDay(30));
+    invoiceMap.put("Total_Fee_Amount", 45000.00); // Standard Term Tuition
+    invoiceMap.put("Amount_Paid", 0.00);
+    invoiceMap.put("Outstanding_Amount", 45000.00);
+    invoiceMap.put("Payment_Status", "Unpaid");
+    if(academicYearLookupId != null)
+    {
+        invoiceMap.put("Academic_Year_Lookup", academicYearLookupId);
+    }
+    zoho.crm.createRecord("Fee_Invoices", invoiceMap);
+    
+    // Step 10: Trigger initial synchronization to Zoho Creator Parent Portal
+    // (Pushes baseline profile so parent can immediately view portal upon login)
+    creatorSyncMap = Map();
+    creatorSyncMap.put("Student_ID", generatedStudentID);
+    creatorSyncMap.put("Student_Name", fullName);
+    creatorSyncMap.put("Parent_Email", parentEmail);
+    creatorSyncMap.put("Parent_Name", parentName);
+    creatorSyncMap.put("Class_Name", gradeApplying);
+    creatorSyncMap.put("Academic_Status", "Active");
+    creatorSyncMap.put("Attendance_Percentage", "100.0%");
+    creatorSyncMap.put("Fee_Status", "Unpaid");
+    creatorSyncMap.put("Total_Outstanding", 45000.00);
+    
+    // Invoke Creator API (Application: school-parent-portal, Form: Students_Cache)
+    // zoho.creator.createRecord("school_admin", "school-parent-portal", "Students_Cache", creatorSyncMap);
+    info "Student conversion and onboarding successfully completed for " + generatedStudentID;
+}
